@@ -1,77 +1,94 @@
 import { pool } from "../database/dbConnection.js";
-import { getAllCountriesQuery, getCountryByIdQuery, addCountryQuery } from "../database/queriesCountries.js";
+import {
+  getAllCountriesQuery,
+  getCountryByIdQuery,
+  addCountryQuery,
+  deleteCountryQuery,
+  updateCountryQuery,
+  checkIdExistsQuery,
+} from "../database/queriesCountries.js";
 
 const getCountries = (request, response) => {
-  pool.query(
-    getAllCountriesQuery,
-    (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
+  pool.query(getAllCountriesQuery, (error, results) => {
+    if (error) {
+      throw error;
     }
-  );
+    response.status(200).json(results.rows);
+  });
 };
 
 const getCountryById = (request, response) => {
   const id = request.params.id;
 
-  pool.query(
-    getCountryByIdQuery,
-    [id],
-    (error, results) => {
-      if (error) {
-        throw error;
-      }
-      response.status(200).json(results.rows);
+  pool.query(getCountryByIdQuery, [id], (error, results) => {
+    if (error) {
+      throw error;
     }
-  );
+    response.status(200).json(results.rows);
+  });
 };
 
-const createCountry = (request, response) => {
+const createCountry = async (request, response) => {
   const { country_id, country_name, region_id } = request.body;
 
-  pool.query(
-    addCountryQuery,
-    [country_id, country_name, region_id],
-    (error, results) => {
+  const checkResult = await pool.query(checkIdExistsQuery, [country_id]);
+  if (checkResult.rows.length) {
+    response.status(409).send(`Country with Id ${country_id} already exists`);
+  } else {
+    await pool.query(
+      addCountryQuery,
+      [country_id, country_name, region_id],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(201).send(`Country added Successfully`);
+      }
+    );
+  }
+};
+
+const updateCountry = async (request, response) => {
+  const id = request.params.id;
+  const { country_name, region_id } = request.body;
+
+  const checkResult = await pool.query(checkIdExistsQuery, [id]);
+  if (!checkResult.rows.length) {
+    response.status(409).send(`Country with Id ${id} does not exists`);
+  } else {
+    await pool.query(
+      updateCountryQuery,
+      [country_name, region_id, id],
+      (error, results) => {
+        if (error) {
+          throw error;
+        }
+        response.status(200).send(`Country modified with ID: ${id}`);
+      }
+    );
+  }
+};
+
+const deleteCountry = async (request, response) => {
+  const id = request.params.id;
+
+  const checkResult = await pool.query(checkIdExistsQuery, [id]);
+  if (!checkResult.rows.length) {
+    response.status(409).send(`Country with Id ${id} does not exists`);
+  } else {
+    await pool.query(deleteCountryQuery, [id], (error, results) => {
       if (error) {
         throw error;
       }
-      response.status(201).send(`Country added Successfully`);
-    }
-  );
+      response.status(200).send("Country deleted successfully");
+    });
+  }
 };
 
-// const updateUser = (request, response) => {
-//   const id = parseInt(request.params.id);
-//   const { name, email } = request.body;
-
-//   pool.query(
-//     "UPDATE users SET name = $1, email = $2 WHERE id = $3",
-//     [name, email, id],
-//     (error, results) => {
-//       if (error) {
-//         throw error;
-//       }
-//       response.status(200).send(`User modified with ID: ${id}`);
-//     }
-//   );
-// };
-
-// const deleteUser = (request, response) => {
-//   const id = parseInt(request.params.id);
-
-//   pool.query("DELETE FROM users WHERE id = $1", [id], (error, results) => {
-//     if (error) {
-//       throw error;
-//     }
-//     response.status(200).send(`User deleted with ID: ${id}`);
-//   });
-// };
-
 export {
-    getCountries,
-    getCountryById,
-    createCountry,
-}
+  getCountries,
+  getCountryById,
+  createCountry,
+  deleteCountry,
+  updateCountry,
+};
